@@ -1,7 +1,8 @@
 import socket
-from helpers import *
+from helpers import header, clear_console, get_address
 from constants import *
-from encryption import *
+from encryption import send_simple_message, send_message, receive_message
+
 import threading
 from getpass import getpass
 
@@ -12,13 +13,13 @@ close_client_thread = threading.Event()
 close_client_thread.clear()
 end_receive = True
 
+### SEND AND RECEIVE THREADS
 
 def receive():
     messages = receive_message(client)
 
     if messages:
         if isinstance(messages, list):
-            comment('names received')
             if len(messages) == 3 and (messages[1].get_type() == MESSAGE or messages[1].get_type() == RESPONSE):
                 if messages[1].get_type() == MESSAGE:
                     print(
@@ -27,10 +28,11 @@ def receive():
                     print(
                         f'[{messages[2].text}] {messages[0].text} {messages[1].text}')
             else:
-                comment(messages[0].text)
-                if len(messages) < 2:
-                    print('[CAUTION] No other in server')
+                if len(messages) < 1:
+                    print('[CAUTION] No clients in server')
                 else:
+                    stop_receive()
+
                     header(' client list ')
                     print('[INPUT] Choose a client to send privately')
                     valid_connections_count = len(messages)
@@ -52,12 +54,18 @@ def receive():
                             print('[ERROR] Message must not be empty')
                         else:
                             all_connections_confirm(
-                                client, client_index, message_input)
+                                client, messages[client_inde].text, message_input)
                     else:
                         print('[ERROR] Client index is not recognized')
+
+                    start_transfer()
         elif messages.type == RESPONSE:
             print(messages.text)
-        elif messages.type == MENU or messages.type == VOID:
+        elif messages.type == STOP_CLIENT:
+            return
+        elif messages.type == STOP_SERVER:
+            send_simple_message(client, STOP_SERVER)
+        elif messages.type == VOID:
             pass
         elif messages.type == PAUSED:
             print(
@@ -73,32 +81,30 @@ def receive():
         elif messages.type == DISCONNECT_SERVER:
             send_simple_message(client, DISCONNECT_REQUEST)
 
-    if stop_request_thread.is_set():
-        global end_receive
-        end_receive = True
-    else:
-        receive()
+    receive()
 
 
 def send():
-    if close_client_thread.is_set():
+    if close_client_thread.is_set() or stop_request_thread.is_set():
         return
 
     user_input = getpass('')
+
+    if close_client_thread.is_set() or stop_request_thread.is_set():
+        return
+
     if user_input == '':
         send()
 
     if user_input == '*':
-        stop_request_thread.set()
-    else:
-        send_message(client, MESSAGE, user_input)
-
-    if stop_request_thread.is_set():
+        stop_receive()
         send_simple_message(client, MENU)
         menu()
     else:
+        send_message(client, MESSAGE, user_input)
         send()
 
+### MENU
 
 def menu():
     header('menu')
@@ -112,11 +118,11 @@ def menu():
     if option == '1':
         print('[INPUT] Enter new name:')
         text = input('> ')
-
         send_message(client, NAME, text)
     elif option == '2':
-        comment('reached')
         send_simple_message(client, ALL_CONNECTIONS_REQUEST)
+        start_receive()
+        return
     elif option == '3':
         print()
         send_simple_message(client, DISCONNECT_REQUEST)
@@ -128,26 +134,44 @@ def menu():
 
     start_transfer()
 
+### INITALIZE THREADS AND CONNECT CLIENT
 
-def start_transfer():
+def stop_receive():
     global end_receive
-    stop_request_thread.clear()
+    end_receive = True
+    stop_request_thread.set()
+    send_simple_message(client, STOP_CLIENT)
 
+
+def start_send():
+    stop_request_thread.clear()
     send_thread = threading.Thread(target=send)
     send_thread.start()
 
-    if end_receive:
+
+def start_transfer():
+    global end_receive
+    end_receive = True
+
+    start_send()
+    start_receive()
+    print()
+    header(' chat room ')
+
+
+def start_receive():
+    stop_request_thread.clear()
+
+    global end_receive
+    if end_receive or True:
         end_receive = False
         receive_thread = threading.Thread(target=receive)
         receive_thread.start()
-
-    header(' chat room ')
 
 
 def boot_client():
     ADDRESS = get_address()
     client.connect(ADDRESS)
-    id = display_address(ADDRESS)
     clear_console()
     header('instructions')
     print(f'[SUCCESS] Joining from {id}')

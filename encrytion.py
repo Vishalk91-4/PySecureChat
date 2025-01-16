@@ -1,20 +1,6 @@
 
 from constants import *
-
-from helpers import comment
-
-
-class Message:
-    def __init__(self, _type, _text):
-        self.type = _type
-        self.text = _text
-
-    def get_type(self):
-        return self.type
-
-    def get_text(self):
-        return self.text
-
+from Message import Message
 
 def send_compound(connection, name, message_or_response, time, is_message):
     send_simple_message(connection, COMPOUND)
@@ -31,11 +17,13 @@ def encode_sender(connection, message_str):
 def send_simple_message(connection, message_type):
     def encode_send(message_str): encode_sender(connection, message_str)
 
-    if message_type == DISCONNECT_REQUEST or message_type == DISCONNECT_CONFIRM or message_type == DISCONNECT_SERVER or message_type == ALL_CONNECTIONS_REQUEST or message_type == ALL_CONNECTIONS_SEND:
-        comment('reached')
-        encode_send(f'{message_type}0')
-    elif message_type == MENU or message_type == VOID or message_type == PAUSED or message_type == COMPOUND:
+    if not (message_type == DISCONNECT_REQUEST or message_type == DISCONNECT_CONFIRM or message_type == DISCONNECT_SERVER or message_type == ALL_CONNECTIONS_REQUEST or message_type == ALL_CONNECTIONS_SEND or message_type == MENU or message_type == VOID or message_type == PAUSED or message_type == COMPOUND or message_type == STOP_SERVER or message_type == STOP_CLIENT):
+        return
+
+    if message_type == COMPOUND:
         encode_send(f'{message_type}00')
+    else:
+        encode_send(f'{message_type}0')
 
 
 def all_connections_send(connection, names):
@@ -50,14 +38,12 @@ def all_connections_send(connection, names):
     for i in range(client_count):
         send_message(connection, NAME, names[i])
 
-    comment('send names')
 
-
-def all_connections_confirm(connection, index, message):
+def all_connections_confirm(connection, name, message):
     def encode_send(message_str): encode_sender(connection, message_str)
 
     encode_send(f'{ALL_CONNECTIONS_CONFIRM}0')
-    send_message(connection, RESPONSE, str(index).zfill(2))
+    send_message(connection, RESPONSE, name)
     send_message(connection, RESPONSE, message)
 
 
@@ -86,14 +72,9 @@ def receive_message(client):
 
     type = int(code[0])
 
-    if type == DISCONNECT:
-        return Message(int(code[:2]), '')
-    elif type == MENU or type == VOID or type == PAUSED:
-        return Message(type, '')
-    elif type == NAME or type == MESSAGE or type == RESPONSE:
-        message_len = int(code[1:])
-        message_text = decode_receive(message_len)
-        return Message(type, message_text)
+    if type == DISCONNECT or type == SIMPLE:
+        actual_type = int(code[:2])
+        return Message(actual_type, '')
     elif type == COMPOUND:
         def parse_time(
             message_text): return f'{"" if message_text[0] == "0" else "1"}{message_text[1]}:{message_text[2:4]} {message_text[4]}M'
@@ -101,11 +82,14 @@ def receive_message(client):
         message_or_response = receive_message(client)
         time = receive_message(client)
         return [name, message_or_response, Message(RESPONSE, parse_time(time.text))]
+    elif type == NAME or type == MESSAGE or type == RESPONSE:
+        message_len = int(code[1:])
+        message_text = decode_receive(message_len)
+        return Message(type, message_text)
     elif type == ALL_CONNECTIONS:
         actual_type = int(code[:2])
 
         if actual_type == ALL_CONNECTIONS_REQUEST:
-            comment('reached')
             return Message(actual_type, '')
         elif actual_type == ALL_CONNECTIONS_SEND:
             names = []
@@ -114,7 +98,7 @@ def receive_message(client):
                 name = receive_message(client)
                 names.append(name)
             return names
-        else:
-            client_index = receive_message(client)
+        elif actual_type == ALL_CONNECTIONS_CONFIRM:
+            name = receive_message(client)
             message = receive_message(client)
-            return Message(client_index.type, client_index.text), Message(client_index.type, message.text)
+            return [Message(name.type, name.text), Message(message.type, message.text)]
