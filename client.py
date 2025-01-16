@@ -1,123 +1,161 @@
 import socket
-from shared import *
+from helpers import *
+from constants import *
+from encryption import *
 import threading
-from queue import Queue
-import atexit
+from getpass import getpass
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-response_map = {
-    f'{DISCONNECT}1': '[SUCCESS] You disconnected',
-    f'{MESSAGE}1': '[SUCCESS] Message sent',
-    f'{MESSAGE}0': '[ERROR] Message must not be empty',
-    f'{NAME}1': f'[SUCCESS] You joined',
-    f'{NAME}0': '[ERROR] Name is empty or already exists',
-}
-client_connected = True
-queue = Queue()
-READ_INPUT = 0
-RECEIVE = 1
-
-
-def receive_response():
-    response = client.recv(2).decode()
-    print(f'{response_map[response]}')
+stop_request_thread = threading.Event()
+stop_request_thread.clear()
+close_client_thread = threading.Event()
+close_client_thread.clear()
+end_receive = True
 
 
 def receive():
-    message = client.recv(3).decode()
+    messages = receive_message(client)
 
-    if not message:
-        return None
+    if messages:
+        if isinstance(messages, list):
+            comment('names received')
+            if len(messages) == 3 and (messages[1].get_type() == MESSAGE or messages[1].get_type() == RESPONSE):
+                if messages[1].get_type() == MESSAGE:
+                    print(
+                        f'[{messages[2].text}] {messages[0].text}: {messages[1].text}')
+                else:
+                    print(
+                        f'[{messages[2].text}] {messages[0].text} {messages[1].text}')
+            else:
+                comment(messages[0].text)
+                if len(messages) < 2:
+                    print('[CAUTION] No other in server')
+                else:
+                    header(' client list ')
+                    print('[INPUT] Choose a client to send privately')
+                    valid_connections_count = len(messages)
+                    for i in range(valid_connections_count):
+                        print(f'[OPTION] {i + 1} - {messages[i].text}')
+                    client_index = input('> ')
 
-    message_code = message[0]
-    if message_code == RESPONSE:
-        receive_response()
+                    if client_index.isdigit():
+                        client_index = int(client_index) - 1
+                    else:
+                        client_index = -1
+
+                    if client_index >= 0 and client_index < valid_connections_count:
+                        print('[INPUT] Enter a message to send privately')
+                        message_input = input('> ')
+                        message_input = message_input[:99]
+
+                        if message_input == '':
+                            print('[ERROR] Message must not be empty')
+                        else:
+                            all_connections_confirm(
+                                client, client_index, message_input)
+                    else:
+                        print('[ERROR] Client index is not recognized')
+        elif messages.type == RESPONSE:
+            print(messages.text)
+        elif messages.type == MENU or messages.type == VOID:
+            pass
+        elif messages.type == PAUSED:
+            print(
+                '[PAUSED] The server is paused')
+            print('[NOTE] Future messages will be pending until unpaused')
+            send_simple_message(client, PAUSED)
+        elif messages.type == DISCONNECT_REQUEST:
+            close_client_thread.set()
+            send_simple_message(client, DISCONNECT_CONFIRM)
+            print('[DISCONNECTED] You have been disconnected')
+            print('[INPUT] Press any key to exit')
+            return
+        elif messages.type == DISCONNECT_SERVER:
+            send_simple_message(client, DISCONNECT_REQUEST)
+
+    if stop_request_thread.is_set():
+        global end_receive
+        end_receive = True
+    else:
+        receive()
 
 
-def send(message):
-    max_data = 99
-    message_len = len(message.text)
+def send():
+    if close_client_thread.is_set():
+        return
 
-    if message_len > 99:
-        message_len = max_data
-        message.text = message.text[0:max_data]
+    user_input = getpass('')
+    if user_input == '':
+        send()
 
-    client.send(f'{message.type}{str(message_len).zfill(2)}'.encode())
+    if user_input == '*':
+        stop_request_thread.set()
+    else:
+        send_message(client, MESSAGE, user_input)
 
-    if message.type != DISCONNECT:
-        client.send(message.text.encode())
-
-    response = ''
-    if message.type == DISCONNECT:
-        response = f'{DISCONNECT}1'
-        global client_connected
-        client_connected = False
-        print(f'{response_map[response]}\n')
+    if stop_request_thread.is_set():
+        send_simple_message(client, MENU)
+        menu()
+    else:
+        send()
 
 
-def read_input():
-    continue_read = True
+def menu():
+    header('menu')
     print("[OPTION] 1 - Change your name")
-    print("[OPTION] 2 - Send a message")
-    print("[OPTION] 3 - Disconnect from chat room\n")
+    print("[OPTION] 2 - Send a private message")
+    print("[OPTION] 3 - Disconnect from chat room")
+    print("[OPTION] 4 - Exit menu\n")
+
     option = input('> ')
+
     if option == '1':
         print('[INPUT] Enter new name:')
         text = input('> ')
 
-        send(Message(NAME, text))
-        response_map[f'{NAME}1'] = f'[SUCCESS] You renamed as {text}'
-        queue.put(RECEIVE)
+        send_message(client, NAME, text)
     elif option == '2':
-        print('[INPUT] Enter message:')
-        text = input('> ')
-        send(Message(MESSAGE, text))
-        queue.put(RECEIVE)
+        comment('reached')
+        send_simple_message(client, ALL_CONNECTIONS_REQUEST)
     elif option == '3':
-        send(Message(DISCONNECT, ''))
-        queue.put(RECEIVE)
-        continue_read = False
+        print()
+        send_simple_message(client, DISCONNECT_REQUEST)
+    elif option == '4' or option == '*':
+        pass
     else:
-        print('[ERROR] Invalid Input. Choose from 1 to 3\n')
+        print('[ERROR] Invalid Input. Choose from 1 to 4\n')
+        menu()
 
-    if continue_read:
-        queue.put(READ_INPUT)
-
-
-def work():
-    top = queue.get()
-    if top == READ_INPUT:
-        read_input()
-    if top == RECEIVE:
-        receive()
-
-    queue.task_done()
-    work()
+    start_transfer()
 
 
-def create_work():
-    queue.put(READ_INPUT)
+def start_transfer():
+    global end_receive
+    stop_request_thread.clear()
 
-    work_thread = threading.Thread(target=work)
-    work_thread.start()
+    send_thread = threading.Thread(target=send)
+    send_thread.start()
+
+    if end_receive:
+        end_receive = False
+        receive_thread = threading.Thread(target=receive)
+        receive_thread.start()
+
+    header(' chat room ')
 
 
 def boot_client():
     ADDRESS = get_address()
     client.connect(ADDRESS)
     id = display_address(ADDRESS)
+    clear_console()
+    header('instructions')
+    print(f'[SUCCESS] Joining from {id}')
+    print('[CONTROL] Type and enter "*" anytime to access menu\n')
+    print('[NOTE] You will not see your input')
+    print('[NOTE] Press ENTER to submit message\n')
 
-    print(f'[SUCCESS] Joining from {id}\n')
-    create_work()
+    start_transfer()
 
 
 boot_client()
-
-
-def terminate_client():
-    pass
-    if client_connected:
-        send(Message(DISCONNECT, ''))
-
-
-atexit.register(terminate_client)
