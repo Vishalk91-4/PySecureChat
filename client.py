@@ -1,7 +1,8 @@
+from ast import Return
 import socket
-from helpers import header, clear_console, get_address
+from helpers import header, clear_console
 from constants import *
-from encryption import send_simple_message, send_message, receive_message
+from encryption import send_simple_message, send_message, receive_message, all_connections_confirm
 
 import threading
 from getpass import getpass
@@ -54,7 +55,7 @@ def receive():
                             print('[ERROR] Message must not be empty')
                         else:
                             all_connections_confirm(
-                                client, messages[client_inde].text, message_input)
+                                client, messages[client_index].text, message_input)
                     else:
                         print('[ERROR] Client index is not recognized')
 
@@ -170,11 +171,15 @@ def start_receive():
 
 
 def boot_client():
+    def get_address():
+        SERVER = socket.gethostbyname('localhost')
+        PORT = 6002
+        return (SERVER, PORT)
     ADDRESS = get_address()
     client.connect(ADDRESS)
     clear_console()
     header('instructions')
-    print(f'[SUCCESS] Joining from {id}')
+    print(f'[SUCCESS] Joining {ADDRESS[0]} ({ADDRESS[1]})')
     print('[CONTROL] Type and enter "*" anytime to access menu\n')
     print('[NOTE] You will not see your input')
     print('[NOTE] Press ENTER to submit message\n')

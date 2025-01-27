@@ -1,4 +1,3 @@
-import socket
 import os
 from math import floor
 from datetime import datetime
@@ -19,6 +18,33 @@ def get_short_time():
         section = 'PM'
 
     return f'{str(hour).zfill(2)}{str(min).zfill(2)}{section[0]}'
+
+def get_date():
+    month_dict = {
+        1: 'January',
+        2: 'February',
+        3: 'March',
+        4: 'April',
+        5: 'May',
+        6: 'June',
+        7: 'July',
+        8: 'August',
+        9: 'September',
+        10: 'October',
+        11: 'November',
+        12: 'December'
+    }
+
+    now = datetime.now()
+    return f'{month_dict[now.month]} {now.day}, {now.year}'
+
+def console_colour_change(colour):
+    if colour == 'black':
+        print("\033[0;30;1m")
+    elif colour == 'green':
+        print("\033[1;32;1m")
+    elif colour == 'blue':
+        print("\033[1;34;1m")
 
 
 def get_long_time():
@@ -45,8 +71,3 @@ def header(heading):
 def clear_console():
     command = 'cls' if os.name in ('nt', 'dos') else 'clear'
     os.system(command)
-
-def get_address():
-    SERVER = socket.gethostbyname('localhost')
-    PORT = 6002
-    return (SERVER, PORT)
