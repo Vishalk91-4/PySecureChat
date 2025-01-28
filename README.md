@@ -1,8 +1,72 @@
-# PySecureChat
+<!-- contact shields -->
+[gmail-shield]: https://img.shields.io/badge/Gmail-D14836?style=for-the-badge&logo=gmail&logoColor=white
+[gmail-url]: mailto:korada.vishal.phe22@itbhu.ac.in
+[linkedin-shield]: https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white
+[linkedin-url]: https://linkedin.com/in/vishal-k-2865b6254
+[github-shield]: https://img.shields.io/badge/GitHub-8631A9?style=for-the-badge&logo=github&logoColor=white
+[github-url]: https://github.com/Vishalk91-4?tab=repositories
 
-# Download Python
-- Install latest version of Python from online, then add python to $PATH
+<!-- project summary shields -->
+[contributors-shield]: https://img.shields.io/github/contributors/Vishalk91-4/PySecureChat.svg?style=for-the-badge
+[contributors-url]: https://github.com/Vishalk91-4/PySecureChat/graphs/contributors
+[stars-shield]: https://img.shields.io/github/stars/Vishalk91-4/PySecureChat.svg?style=for-the-badge
+[stars-url]: https://github.com/Vishalk91-4/PySecureChat/stargazers
 
-# Run Command
-- Run "python server.py" in a shell to set up server
-- Run "python client.py" in one or more shells, afterwards
+<!-- programming language shields -->
+[python-shield]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[javascript-shield]: https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black
+[c++-shield]: https://img.shields.io/badge/C%2B%2B-00599C?style=for-the-badge&logo=c%2B%2B&logoColor=white
+[c#-shield]: https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=c-sharp&logoColor=white
+[html-shield]: https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white
+[css-shield]: https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white
+
+<!-- start document -->
+<div id="start"></div>
+
+<!-- contact info -->
+[![Gmail][gmail-shield]][gmail-url]
+[![LinkedIn][linkedin-shield]][linkedin-url]
+[![GitHub][github-shield]][github-url]
+
+<!-- project overview -->
+<br />
+<div align="center">
+  <!-- project image -->
+  <a href="https://github.com/Vishalk91-4/PySecureChat">
+    <img src="assets/chat-service.png" alt="project-thumbnail" width="400" height="250">
+  </a>
+
+  <h3>Messenger</h3>
+  <!-- languages used in project -->
+  <div>
+    <img alt="skill-thumbnail" width="27px" height="30px" src="./assets/python.png" />
+    <img alt="skill-thumbnail" width="27px" height="30px" src="./assets/firebase.png" />
+    <img alt="skill-thumbnail" width="27px" height="30px" src="./assets/mysql.png" />
+  </div>
+  <!-- project description -->
+    <p>
+    A real-time messaging application. Used sockets and threading to create server and client services. Applied networking principles.
+    <br />
+    </p>
+</div>
+
+* Dependencies
+    ```sh
+    pip3 install socket
+    pip3 install threading
+    ```
+
+## Instructions
+* Boot up server socket
+```sh
+python3 server.py
+```
+* Boot up client(s)
+```sh
+python3 client.py
+```
+* Open menu options
+```console
+type *
+press enter
+```
